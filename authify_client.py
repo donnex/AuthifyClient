@@ -22,6 +22,9 @@ class AuthifyClient(object):
 
         self.ip = ip
 
+        self.authify_checksum = None
+        self.response = None
+
     def require_login(self, idp, callback_url):
         """Login/sign the user and return the redirect url"""
         request_token_content = '%s%s%s' % (self.api_key, datetime.now(), random())
@@ -55,13 +58,67 @@ class AuthifyClient(object):
         }
 
         r = requests.post(url, data=data)
-        return json.loads(r.content)
+        self.response = json.loads(r.content)
+        return self.response
+
+    def get_signidp(self):
+        """Get the sign idp for a Authify checksum"""
+        if not self.authify_checksum:
+            raise AuthifyClientException('Authify checksum not set')
+
+        url = '%s/json/' % (self.base_url,)
+        data = {
+            'api_key': self.api_key,
+            'secret_key': self.api_secret,
+            'authify_checksum': self.authify_checksum,
+            'protocol': 'signidp',
+            'uri': '',
+            'ip_add': self.ip,
+            'v': self.authify_version,
+        }
+
+        r = requests.post(url, data=data)
+        return r.content
+
+    def get_signed_data(self):
+        """Get signed data for Authify checksum"""
+        if not self.authify_checksum:
+            raise AuthifyClientException('Authify checksum not set')
+
+        url = '%s/json/' % (self.base_url,)
+        data = {
+            'api_key': self.api_key,
+            'secret_key': self.api_secret,
+            'authify_checksum': self.authify_checksum,
+            'protocol': 'extradataprofile:%s_data' % (self.get_signidp().strip(),),
+            'uri': '',
+            'ip_add': self.ip,
+            'v': self.authify_version,
+        }
+
+        r = requests.post(url, data=data)
+        return r.content
+
+    def get_properties(self, property):
+        if not self.response:
+            self.get_response()
+
+        return self.response['data'][0].get(property)
 
     def send_data_to_authify(self, data_to_store):
         """Store data to sign on Authify"""
         url = '%s/store/' % (self.base_url,)
+        store_xml = '<signdata><name>datatosign</name><data_to_sign>%s</data_to_sign><item>%s</item><logged_in_idp>%s</logged_in_idp><uid>%s</uid><mapuid>%s</mapuid><luid>%s</luid><name>%s</name></signdata>' % (
+            data_to_store.strip(),
+            self.get_properties('item'),
+            self.get_properties('idp'),
+            self.get_properties('uid'),
+            self.get_properties('mapuid'),
+            self.get_properties('idpuid'),
+            self.get_properties('name'),
+        )
         data = {
-            'extradata': data_to_store,
+            'extradata': store_xml,
             'api_key': self.api_key,
             'secret_key': self.api_secret,
             'authify_reponse_token': self.authify_checksum,
