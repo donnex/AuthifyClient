@@ -37,12 +37,25 @@ class AuthifyClient(object):
             'authify_request_token': request_token_hash,
             'protocol': 'json',
             'uri': callback_url,
-            'ip_add': self.ip,
+            'ip_ad': self.ip,
             'v': self.authify_version,
         }
         requests.post(url, data=data)
 
         return '%s/tokenidx.php?authify_request_token=%s' % (self.base_url, request_token_hash,)
+
+    def require_logout(self):
+        """Logout the user from Authify"""
+        if not self.authify_checksum:
+            raise AuthifyClientException('Authify checksum not set')
+
+        url = '%s/out/' % (self.base_url,)
+        data = {
+            'authify_checksum': self.authify_checksum,
+            'ip_ad': self.ip,
+            'v': self.authify_version,
+        }
+        requests.post(url, data=data)
 
     def get_response(self):
         """Get a status response about the current state from Authify"""
@@ -53,7 +66,7 @@ class AuthifyClient(object):
             'authify_checksum': self.authify_checksum,
             'protocol': 'json',
             'uri': '',
-            'ip_add': self.ip,
+            'ip_ad': self.ip,
             'v': self.authify_version,
         }
 
@@ -73,7 +86,7 @@ class AuthifyClient(object):
             'authify_checksum': self.authify_checksum,
             'protocol': 'signidp',
             'uri': '',
-            'ip_add': self.ip,
+            'ip_ad': self.ip,
             'v': self.authify_version,
         }
 
@@ -92,7 +105,7 @@ class AuthifyClient(object):
             'authify_checksum': self.authify_checksum,
             'protocol': 'extradataprofile:%s_data' % (self.get_signidp().strip(),),
             'uri': '',
-            'ip_add': self.ip,
+            'ip_ad': self.ip,
             'v': self.authify_version,
         }
 
@@ -122,7 +135,7 @@ class AuthifyClient(object):
             'api_key': self.api_key,
             'secret_key': self.api_secret,
             'authify_reponse_token': self.authify_checksum,
-            'ip_add': self.ip,
+            'ip_ad': self.ip,
             'v': self.authify_version,
         }
         requests.post(url, data=data)
